@@ -32,14 +32,14 @@ class Sequential(Model):
 
             input_layer = []
             for l in layer.input_tensors:
-                in_layer, _ = l._sm_history
+                in_layer, _ = getattr(l, '_sm_history')
                 input_layer.append(in_layer)
             if len(input_layer) == 1:
                 input_layer = input_layer[0]
             self._layers.append(input_layer)
         else:
             prev_layer = self._layers[-1]
-            if isinstance(prev_layer._output_tensors, list) and len(prev_layer._output_tensors) > 1:
+            if isinstance(prev_layer.output_tensors, list) and len(prev_layer.output_tensors) > 1:
                 raise Exception('All layers in a Sequential model should have a single output'
                                 ' tensor. For multi-output layers use the Parallel model.')
             self._outputs = layer(prev_layer)

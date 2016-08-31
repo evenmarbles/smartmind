@@ -80,7 +80,7 @@ class Layer(object):
             input_shapes = []
             for x_elem in tolist(input_tensors):
                 if hasattr(x_elem, '_sm_shape'):
-                    input_shapes.append(x_elem._sm_shape)
+                    input_shapes.append(getattr(x_elem, '_sm_shape'))
                 else:
                     input_shapes.append(tf_int_shape(x_elem))
 
@@ -164,8 +164,8 @@ class Input(Layer):
                 tensor.append(tf.placeholder(self._input_dtype,
                                              shape=shape,
                                              name=self.name))
-            tensor[i]._sm_shape = shape
-            tensor[i]._sm_history = (self, i)
+            setattr(tensor[i], '_sm_shape', shape)
+            setattr(tensor[i], '_sm_history', (self, i))
 
         if len(tensor) <= 1:
             return tensor[0]
@@ -213,7 +213,7 @@ class Container(object):
                                 ' model must contain SmartMind metadata.')
 
             # check that x is an input tensor
-            layer, tensor_index = x._sm_history
+            layer, tensor_index = getattr(x, '_sm_history')
             if layer._inbound_layers:
                 raise Exception('Input tensors to the ' + self.__class__.__name__ +
                                 ' model must be an Input layer and cannot be the output'
@@ -223,18 +223,18 @@ class Container(object):
             self._input_layers.append(layer)
             self._input_tensor_indices.append(tensor_index)
             self._input_names.append(layer.name)
-            self._internal_input_shapes.append(x._sm_shape)
+            self._internal_input_shapes.append(getattr(x, '_sm_shape'))
 
         for x in self._outputs:
             if not hasattr(x, '_sm_history'):
                 raise Exception('Output tensors to the ' + self.__class__.__name__ +
                                 ' model must contain SmartMind metadata.')
 
-            layer, tensor_index = x._sm_history
+            layer, tensor_index = getattr(x, '_sm_history')
             self._output_layers.append(layer)
             self._output_tensor_indices.append(tensor_index)
             self._output_names.append(layer.name)
-            self._internal_output_shapes.append(x._sm_shape)
+            self._internal_output_shapes.append(getattr(x, '_sm_shape'))
 
 
 class Model(Container):
@@ -307,7 +307,7 @@ class Model(Container):
         # prepare targets of model
         self._targets = []
         for i, o in enumerate(self._outputs):
-            shape = o._sm_shape
+            shape = getattr(o, '_sm_shape')
             name = self._output_names[i]
             target = tf.placeholder(tf.float32, shape=tuple([None for _ in len(shape)]), name=name + '_target')
             target._sm_shape = shape
@@ -330,7 +330,7 @@ class Model(Container):
 
         # functions for train, test and predict, will be compiled lazily in case user does not
         # use all functions
-        self._fn_train = None
-        self._fn_test = None
-        self._fn_predict = None
+        setattr(self, '_fn_train', None)
+        setattr(self, '_fn_test', None)
+        setattr(self, '_fn_predict', None)
 

@@ -14,7 +14,6 @@ from ..utils import tf_int_shape
 
 
 class Activation(Layer):
-
     def __init__(self, activation, activation_params=None, input_shape=None, input_dtype='float32',
                  batch_size=None, input_default=None, sparse_input=False, reader_input=None, name=None):
         super(Activation, self).__init__(input_shape, input_dtype, batch_size, input_default,
@@ -76,7 +75,7 @@ class Reshape(Layer):
                  batch_size=None, input_default=None, sparse_input=False,
                  reader_input=None, name=None):
         super(Reshape, self).__init__(input_shape, input_dtype, batch_size, input_default,
-                                         sparse_input, reader_input, name)
+                                      sparse_input, reader_input, name)
 
         self._target_shape = target_shape
 
@@ -84,13 +83,13 @@ class Reshape(Layer):
         # In case the target shape is not fully defined,
         # we need access to the shape of x.
         # solution:
-        # 1) rely on x._keras_shape
+        # 1) rely on x._sm_shape
         # 2) fallback: tf_int_shape
         target_shape = self._target_shape
         if -1 in target_shape:
             # target shape not fully defined
             if hasattr(x, '_sm_shape'):
-                input_shape = x._sm_shape
+                input_shape = getattr(x, '_sm_shape')
             else:
                 input_shape = tf_int_shape(x)
 
@@ -100,6 +99,7 @@ class Reshape(Layer):
             target_shape = (-1,) + target_shape[1:]
         return tf.reshape(x, target_shape)
 
+    # noinspection PyMethodMayBeStatic
     def _fix_unknown_dimension(self, input_shape, output_shape):
         """Find and replace a single missing dimension in an output shape
         given an input shape.

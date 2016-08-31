@@ -40,5 +40,5 @@ model.add(Activation('relu'))
 model.add(FullyConnected(NUM_CLASSES, init='truncated_normal', init_params={'stddev': 1./192.},
                          weight_decay=0.0))
 
-model.compile(optimizer='sgd', loss='categorical_xentropy', loss_weights={'input': 1.})
+model.compile(optimizer='sgd', loss='sparse_categorical_xentropy', loss_weights={'input': 1.})
 
