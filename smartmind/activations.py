@@ -5,11 +5,12 @@ from __future__ import absolute_import
 import tensorflow as tf
 from collections import OrderedDict
 
-from .utils import tolist
 from .utils import to_tensor
 from .utils import tf_ndims
 from .utils import tf_max
 from .utils import tf_sum
+from .utils import get_from_module
+from .utils import process_params
 
 
 def linear(x, name=None):
@@ -64,20 +65,7 @@ def relu(x, alpha=0.0, max_value=None, name=None):
     return x
 
 
-def get(name):
-    return {
-        'linear': linear,
-        'tanh': tanh,
-        'sigmoid': sigmoid,
-        'hard_sigmoid': hard_sigmoid,
-        'softmax': softmax,
-        'softplus': softplus,
-        'softsign': softsign,
-        'relu': relu,
-    }[name]
-
-
-def get_default(name):
+def _get_defaults():
     return {
         'linear': OrderedDict([('name', None)]),
         'tanh': OrderedDict([('name', None)]),
@@ -87,21 +75,23 @@ def get_default(name):
         'softplus': OrderedDict([('name', None)]),
         'softsign': OrderedDict([('name', None)]),
         'relu': OrderedDict([('alpha', 0.0), ('max_value', None), ('name', None)]),
-    }[name]
+    }
 
 
-def check_params(name, params):
-    if params is None:
-        return {}
+def get(name, kwargs=None):
+    fn_dict = {
+        'linear': linear,
+        'tanh': tanh,
+        'sigmoid': sigmoid,
+        'hard_sigmoid': hard_sigmoid,
+        'softmax': softmax,
+        'softplus': softplus,
+        'softsign': softsign,
+        'relu': relu,
+    }
 
-    default = get_default(name)
+    return get_from_module(name, fn_dict, _get_defaults(), False, False, kwargs)
 
-    if isinstance(params, dict):
-        if not all(k in default for k in params.keys()):
-            raise Exception('{}: Activations parameter mismatch.'.format(name))
-        return params
 
-    params = tolist(params)
-    if len(params) > len(default):
-        raise Exception('{}: Too many activations parameters given.'.format(name))
-    return dict(zip(default.keys(), params))
+def process_parameters(name, kwargs):
+    return process_params(name, kwargs, _get_defaults())

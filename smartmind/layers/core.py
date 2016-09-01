@@ -20,7 +20,7 @@ class Activation(Layer):
                                          sparse_input, reader_input, name)
 
         self._activation = activations.get(activation)
-        self._activation_params = activations.check_params(activation, activation_params)
+        self._activation_params = activations.process_parameters(activation, activation_params)
 
     def _call(self, x):
         return self._activation(x)
@@ -36,10 +36,10 @@ class FullyConnected(Layer):
 
         self._output_dim = output_dim
 
-        self._init = initializers.get(init, init_params, True)
+        self._init = initializers.get(init, kwargs=init_params)
 
         self._activation = activations.get(activation)
-        self._activation_params = activations.check_params(activation, activation_params)
+        self._activation_params = activations.process_parameters(activation, activation_params)
 
         self._bias = bias
         self._bias_init = bias_init

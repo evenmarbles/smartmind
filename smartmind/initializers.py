@@ -7,7 +7,8 @@ import tensorflow as tf
 from collections import OrderedDict
 
 from .utils import to_dtype
-from .utils import tolist
+from .utils import get_from_module
+from .utils import process_params
 
 
 def _process_parameters(seed, dtype):
@@ -89,34 +90,22 @@ def he_normal(seed=None, dtype='float32'):
                                                           dtype=tf_dtype)
 
 
-def get(name, params, instantiate=False):
-    def eval_params(p):
-        default = {
-            'uniform': OrderedDict([('minval', 0.0), ('maxval', 1.0), ('seed', None), ('dtype', 'float32')]),
-            'normal': OrderedDict([('mean', 0.0), ('stddev', 1.0), ('seed', None), ('dtype', 'float32')]),
-            'truncated_normal': OrderedDict([('mean', 0.0), ('stddev', 1.0), ('seed', None), ('dtype', 'float32')]),
-            'constant': OrderedDict([('value', 0.0), ('dtype', 'float32')]),
-            'xavier_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
-            'xavier_normal': OrderedDict([('seed', None), ('dtype', 'float32')]),
-            'lecun_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
-            'he_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
-            'he_normal': OrderedDict([('seed', None), ('dtype', 'float32')]),
-        }[name]
+def _get_defaults():
+    return {
+        'uniform': OrderedDict([('minval', 0.0), ('maxval', 1.0), ('seed', None), ('dtype', 'float32')]),
+        'normal': OrderedDict([('mean', 0.0), ('stddev', 1.0), ('seed', None), ('dtype', 'float32')]),
+        'truncated_normal': OrderedDict([('mean', 0.0), ('stddev', 1.0), ('seed', None), ('dtype', 'float32')]),
+        'constant': OrderedDict([('value', 0.0), ('dtype', 'float32')]),
+        'xavier_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
+        'xavier_normal': OrderedDict([('seed', None), ('dtype', 'float32')]),
+        'lecun_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
+        'he_uniform': OrderedDict([('seed', None), ('dtype', 'float32')]),
+        'he_normal': OrderedDict([('seed', None), ('dtype', 'float32')]),
+    }
 
-        if p is None:
-            return {}
 
-        if isinstance(p, dict):
-            if not all(k in default for k in p.keys()):
-                raise Exception('{}: Initializer parameter mismatch.'.format(name))
-            return p
-
-        p = tolist(p)
-        if len(p) > len(default):
-            raise Exception('{}: Too many initializer parameters given.'.format(name))
-        return dict(zip(default.keys(), p))
-
-    initializer = {
+def get(name, kwargs=None):
+    fn_dict = {
         'uniform': uniform,
         'normal': normal,
         'truncated_normal': truncated_normal,
@@ -126,8 +115,10 @@ def get(name, params, instantiate=False):
         'lecun_uniform': lecun_uniform,
         'he_uniform': he_uniform,
         'he_normal': he_normal
-    }[name]
+    }
 
-    if instantiate:
-        return initializer(**eval_params(params))
-    return initializer
+    return get_from_module(name, fn_dict, _get_defaults(), True, True, kwargs)
+
+
+def process_parameters(name, kwargs):
+    return process_params(name, kwargs, _get_defaults())

@@ -77,10 +77,10 @@ def check_params(name, params):
 
     if isinstance(params, dict):
         if not all(k in default for k in params.keys()):
-            raise Exception('{}: Initializer parameter mismatch.'.format(name))
+            raise Exception('{}: Parameter mismatch.'.format(name))
         return params
 
     params = tolist(params)
     if len(params) > len(default):
-        raise Exception('{}: Too many initializer parameters given.'.format(name))
+        raise Exception('{}: Too many parameters given.'.format(name))
     return dict(zip(default.keys(), params))

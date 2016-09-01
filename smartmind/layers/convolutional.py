@@ -6,6 +6,8 @@ import tensorflow as tf
 
 from .. import initializers
 from .. import activations
+from .. import regularizers
+
 from ..framework import Layer
 from ..utils import tf_variable_with_weight_decay
 from ..utils import conv_output_length
@@ -24,10 +26,10 @@ class Conv2d(Layer):
         self._kernel_size = kernel_size
         self._strides = strides
 
-        self._init = initializers.get(init, init_params, True)
+        self._init = initializers.get(init, kwargs=init_params)
 
-        self._activation = activations.get(activation)
-        self._activation_params = activations.check_params(activation, activation_params)
+        self._activation = activations.get(activation, activation_params)
+        self._activation_params = activations.process_parameters(activation, activation_params)
 
         if padding not in {'VALID', 'SAME'}:
             raise Exception('Invalid padding for Conv2d:', padding)
@@ -55,9 +57,12 @@ class Conv2d(Layer):
                 self._strides = [1, self._strides[0], self._strides[1], 1]
                 kernel_shape = [self._kernel_size[0], self._kernel_size[1], shape[-1], self._output_dim]
 
-            self._w = tf_variable_with_weight_decay('w', kernel_shape, tf.float32,
-                                                    initializer=self._init,
-                                                    wd=self._weight_decay)
+            self._w = tf.get_variable('w', kernel_shape, tf.float32,
+                                      initializer=self._init,
+                                      regularizer=regularizers.get('l2', self._weight_decay))
+            # self._w = tf_variable_with_weight_decay('w', kernel_shape, tf.float32,
+            #                                         initializer=self._init,
+            #                                         wd=self._weight_decay)
 
             if self._bias:
                 self._b = tf.get_variable('b', [self._output_dim], initializer=initializers.constant(self._bias_init))
