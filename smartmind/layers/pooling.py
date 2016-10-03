@@ -28,11 +28,8 @@ def _pool2d(x, ksize, strides, padding, data_format, mode='max'):
 
 
 class _Pooling(Layer):
-    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', input_shape=None,
-                 input_dtype='float32', batch_size=None, input_default=None, sparse_input=False,
-                 reader_input=None, name=None):
-        super(_Pooling, self).__init__(input_shape, input_dtype, batch_size, input_default,
-                                       sparse_input, reader_input, name)
+    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', trainable=True,
+                 input_shape=None, input_dtype=None, batch_size=None, name=None):
         self._ksize = ksize
         self._strides = strides
 
@@ -43,6 +40,9 @@ class _Pooling(Layer):
         if data_format not in {'NCHW', 'NHWC'}:
             raise Exception('Invalid data format for Conv2d: {}'.format(data_format))
         self._data_format = data_format
+
+        super(_Pooling, self).__init__(trainable, name, input_shape=input_shape,
+                                       input_dtype=input_dtype, batch_size=batch_size)
 
     def _pooling_function(self, inputs):
         raise NotImplementedError
@@ -70,12 +70,11 @@ class _Pooling(Layer):
 
 
 class MaxPooling2D(_Pooling):
-    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', input_shape=None,
-                 input_dtype='float32', batch_size=None, input_default=None, sparse_input=False,
-                 reader_input=None, name=None):
-        super(MaxPooling2D, self).__init__(ksize, strides, padding, data_format, input_shape,
-                                           input_dtype, batch_size, input_default, sparse_input,
-                                           reader_input, name)
+    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', trainable=True,
+                 input_shape=None, input_dtype=None, batch_size=None, name=None):
+
+        super(MaxPooling2D, self).__init__(ksize, strides, padding, data_format, trainable,
+                                           input_shape, input_dtype, batch_size, name)
 
     def _pooling_function(self, inputs):
         return _pool2d(inputs, ksize=self._ksize,
@@ -89,12 +88,11 @@ class MaxPooling2D(_Pooling):
 
 
 class AveragePooling2D(_Pooling):
-    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', input_shape=None,
-                 input_dtype='float32', batch_size=None, input_default=None, sparse_input=False,
-                 reader_input=None, name=None):
-        super(AveragePooling2D, self).__init__(ksize, strides, padding, data_format, input_shape,
-                                           input_dtype, batch_size, input_default, sparse_input,
-                                           reader_input, name)
+    def __init__(self, ksize, strides, padding='VALID', data_format='NHWC', trainable=True,
+                 input_shape=None, input_dtype=None, batch_size=None, name=None):
+
+        super(AveragePooling2D, self).__init__(ksize, strides, padding, data_format, trainable,
+                                               input_shape, input_dtype, batch_size, name)
 
     def _pooling_function(self, inputs):
         return _pool2d(inputs, ksize=self._ksize,

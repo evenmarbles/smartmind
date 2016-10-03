@@ -115,9 +115,6 @@ def download_and_extract(dest_dir, data_dir, origin, untar=False, md5_hash=None)
     filename = origin.split('/')[-1]
     filepath = os.path.join(data_dir, filename)
 
-    if not untar:
-        data_dir = os.path.join(data_dir, dest_dir)
-
     download = False
     if os.path.exists(filepath):
         # file found; verify integrity if a hash was provided
@@ -155,10 +152,14 @@ def download_and_extract(dest_dir, data_dir, origin, untar=False, md5_hash=None)
     if untar:
         untar_dir = os.path.join(data_dir, dest_dir)
         if not os.path.exists(untar_dir):
-            print('Untaring file...')
+            print('Extracting', filename)
             tfile = tarfile.open(filepath, 'r:gz')
-            tfile.extractall(data_dir)
-            tfile.close()
+            try:
+                tfile.extractall(data_dir)
+                tfile.close()
+            except tarfile.ReadError:
+                tfile.close()
+
         data_dir = untar_dir
     return data_dir
 
@@ -175,7 +176,8 @@ def get_file(dest_dir, origin, untar=False, cache_subdir='datasets'):
     return data_dir
 
 
-def read_data_using_reader_op(filenames, reader='fixed_length', reader_params=None, cb_preprocess=None):
+def read_data_using_reader_op(filenames, reader='fixed_length', reader_params=None,
+                              cb_preprocess=None, num_epochs=None):
     """Reads examples from data files using the Reader op.
 
     Recommendation: if you want N-way read parallelism, call this function
@@ -189,6 +191,11 @@ def read_data_using_reader_op(filenames, reader='fixed_length', reader_params=No
     reader: str
     reader_params: dict or list or tuple
     cb_preprocess: callable
+    num_epochs: int, optional
+        If specified, string_input_producer produces each string from string_tensor
+        num_epochs times before generating an OutOfRange error. If not specified,
+        string_input_producer can cycle through the strings in string_tensor an
+        unlimited number of times.
 
     Returns
     -------
@@ -207,7 +214,7 @@ def read_data_using_reader_op(filenames, reader='fixed_length', reader_params=No
     reader_str = reader
 
     # Create a queue that produces the filenames to read.
-    filename_queue = tf.train.string_input_producer(filenames)
+    filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
 
     # Read a record, getting filenames from the queue.
     reader = _get_reader(reader_str, reader_params)

@@ -4,12 +4,18 @@ from __future__ import absolute_import
 
 # noinspection PyUnresolvedReferences
 from six.moves import range
+# noinspection PyUnresolvedReferences
+from six.moves import cPickle
 
 import os
+import sys
+import numpy as np
 import tensorflow as tf
 
 from ..utils.data_utils import get_file
 from ..utils.data_utils import read_data_using_reader_op
+from ..datasets import ImageDataset
+from ..datasets import Datasets
 
 # Process images of this size. Note that this differs from the original CIFAR
 # image size of 32 x 32. If one alters this number, then the entire model
@@ -22,6 +28,7 @@ LABEL_BYTES = 1
 IMAGE_HEIGHT = 32
 IMAGE_WIDTH = 32
 IMAGE_DEPTH = 3
+NUM_EXAMPLES_PER_FILE = 10000
 
 NUM_CLASSES = 10
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 50000
@@ -72,7 +79,26 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
     return images, tf.reshape(label_batch, [batch_size])
 
 
-def load_data():
+def _read_file(filepath, data_format='NHWC'):
+    with open(filepath, 'rb') as f:
+        if sys.version_info < (3,):
+            d = cPickle.load(f)
+        else:
+            d = cPickle.load(f, encoding="bytes")
+            # decode utf8
+            for k, v in d.items():
+                del (d[k])
+                d[k.decode("utf8")] = v
+    data = d['data']
+    labels = d['labels']
+
+    data = data.reshape(data.shape[0], IMAGE_DEPTH, IMAGE_WIDTH, IMAGE_HEIGHT)
+    if data_format == 'NHWC':
+        data = data.transpose((0, 2, 3, 1))
+    return data, labels
+
+
+def load_data_with_reader_op(num_epochs=None):
     origin = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
     def pre_process(record_bytes, result):
@@ -122,12 +148,13 @@ def load_data():
                  for i in range(1, 6)]
     return read_data_using_reader_op(filenames,
                                      reader_params=(record_bytes,),
-                                     cb_preprocess=pre_process)
+                                     cb_preprocess=pre_process,
+                                     num_epochs=num_epochs)
 
 
-def distorted_inputs(batch_size):
+def distorted_inputs(batch_size, num_epochs=None):
     """Construct distorted inputs for CIFAR training using the Reader ops"""
-    read_input = load_data()
+    read_input = load_data_with_reader_op(num_epochs)
     reshaped_image = tf.cast(read_input.uint8image, tf.float32)
 
     height = IMAGE_SIZE
@@ -164,3 +191,31 @@ def distorted_inputs(batch_size):
     return _generate_image_and_label_batch(float_image, read_input.label,
                                            min_queue_examples, batch_size,
                                            shuffle=True)
+
+
+def load_data(shuffle=True, data_format='NHWC'):
+    origin = 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
+
+    data_dir = get_file('cifar-10-batches-py', origin, untar=True)
+
+    filenames = [os.path.join(data_dir, 'data_batch_%d' % i) for i in range(1, 6)]
+    if shuffle:
+        np.random.shuffle(filenames)
+
+    x_train = np.zeros((NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN, IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DEPTH), dtype='uint8')
+    y_train = np.zeros((NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN,), dtype='uint8')
+
+    for i, filename in enumerate(filenames):
+        data, labels = _read_file(filename, data_format)
+
+        x_train[i*NUM_EXAMPLES_PER_FILE:(i+1)*NUM_EXAMPLES_PER_FILE, :, :, :] = data
+        y_train[i*NUM_EXAMPLES_PER_FILE:(i+1)*NUM_EXAMPLES_PER_FILE] = labels
+    y_train = np.reshape(y_train, (len(y_train), 1))
+
+    x_test, y_test = _read_file(os.path.join(data_dir, 'test_batch'))
+    y_test = np.reshape(y_test, (len(y_test), 1))
+
+    train = ImageDataset(x_train, y_train, 'uint8')
+    test = ImageDataset(x_test, y_test, 'uint8')
+
+    return Datasets(train=train, test=test)

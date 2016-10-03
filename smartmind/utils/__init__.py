@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 from .generic import *
+from .tf_helpers import *
 from .tensor import *
 from .np_utils import *
 

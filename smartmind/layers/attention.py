@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
 
+# noinspection PyUnresolvedReferences
 from six.moves import range
 
 import numpy as np
@@ -12,10 +13,8 @@ from ..utils import tf_int_shape
 
 
 class SpatialGlimpse(Layer):
-    def __init__(self, size, depth, scale, input_shape=None, input_dtype='float32',
-                 batch_size=None, input_default=None, sparse_input=False, reader_input=None, name=None):
-        super(SpatialGlimpse, self).__init__([input_shape, (2,)], input_dtype, batch_size,
-                                             input_default, sparse_input, reader_input, name)
+    def __init__(self, size, depth, scale, trainable=True, data_format='NHWC', input_shape=None, input_dtype=None,
+                 batch_size=None, name=None):
 
         if isinstance(size, (list, tuple)):
             self._height, self._width = size
@@ -34,18 +33,25 @@ class SpatialGlimpse(Layer):
             width *= self._scale
             self._sizes.append(np.array([height, width]))
 
-    def _call(self, x):
-        super(SpatialGlimpse, self)._call(x)
+        if data_format not in {'NCHW', 'NHWC'}:
+            raise Exception('Invalid data format for SpatialGlimpse: {}'.format(data_format))
+        self._data_format = data_format
 
-        if not isinstance(x, list):
+        super(SpatialGlimpse, self).__init__(trainable, name, input_shape=[input_shape, (2,)],
+                                             input_dtype=input_dtype, batch_size=batch_size)
+
+    def _call(self, inputs):
+        super(SpatialGlimpse, self)._call(inputs)
+
+        if not isinstance(inputs, list):
             raise Exception('SpatialGlimpse takes exactly two inputs')
 
-        offsets = x[1]
-        x = x[0]
+        offsets = inputs[1]
+        inputs = inputs[0]
 
         output = []
         for d in range(self._depth):
-            o = tf.image.extract_glimpse(x, tf.constant(self._sizes[d], dtype=tf.int32, shape=[2]), offsets)
+            o = tf.image.extract_glimpse(inputs, tf.constant(self._sizes[d], dtype=tf.int32, shape=[2]), offsets)
             if d > 0:
                 kernel_size = self._sizes[d] / self._sizes[0]
                 assert (np.any(kernel_size % 2) == 0.)
@@ -55,12 +61,11 @@ class SpatialGlimpse(Layer):
                                    padding='VALID')
             output.append(o)
 
-        output_shape = (-1,) if self._batch_size is None else (self._batch_size,)
-        output_shape += (self._height, self._width, self._batch_input_shape[0][3] * self._depth)
+        input_shape = tf_int_shape(inputs)
+        batch_size = (-1,) if input_shape[0] is None else (input_shape[0],)
+        output_shape = batch_size + (self._height, self._width) + (self._depth,)
 
-        output = tf.pack(output, axis=4)
-        output = tf.reshape(output, shape=output_shape)
-        return output
+        return tf.reshape(tf.pack(output, axis=4), shape=output_shape)
 
     def _get_output_shape(self, input_shape):
         """Computes the output shape of the layer given an input shape.
@@ -72,5 +77,5 @@ class SpatialGlimpse(Layer):
             The input shape(s) for the layer. Shape tuples can include
             None for free dimensions, instead of integer.
         """
-
-        return self._batch_size, self._height, self._width, self._batch_input_shape[0][3] * self._depth
+        input_shape = input_shape[0]
+        return (input_shape[0],) + (self._height, self._width) + (input_shape[3] * self._depth,)

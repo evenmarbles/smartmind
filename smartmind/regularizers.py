@@ -80,7 +80,7 @@ def l2_regularizer(scale=0.01, scope=None):
                              scale)
         if scale == 0.:
             logging.info('Scale of 0 disables regularizer.')
-            return lambda _: None
+            return None
 
     def l2(weights):
         """Applies l2 regularization to weights."""

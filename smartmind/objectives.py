@@ -6,35 +6,54 @@ import numpy as np
 import tensorflow as tf
 
 from .utils import to_tensor
-from .utils import tf_ndims
 from .utils import tf_mean
 from .utils import tf_sum
 from .utils import tf_clip
 from .utils import tf_l2_normalize
 from .utils import epsilon
+from .losses import add_loss
+
+__all__ = ['compute_weighted_objective',
+           'get',
+           'process_parameters']
 
 
-def weighted_objective(fn):
-    """Transforms an objective function `fn(y_pred, y_target)`
-    into a sample-weighted, cost-masked objective function
+def compute_weighted_objective(fn):
+    """Computes the weighted loss.
+
+    Notes
+    -----
+    Transforms an objective function `fn(y_pred, y_target)`
+    into a sample-weighted, cost-masked loss function
     `fn(y_pred, y_target, weights, mask)`.
     """
-    def weighted(y_pred, y_target, weights, mask=None):
-        score = fn(y_pred, y_target)
+
+    def _compute_weighted_loss(y_pred, y_target, sample_weight, loss_weight, mask=None):
+        losses = fn(y_pred, y_target)
         if mask is not None:
             pass
 
         # reduce score to same dim as weight array
-        ndims = tf_ndims(score)
-        weight_ndims = tf_ndims(weights)
-        score = tf_mean(score, axis=list(range(weight_ndims, ndims)))
+        if sample_weight is not None:
+            input_dtype = losses.dtype
+            if sample_weight.get_shape().ndims is None:
+                raise ValueError("sample_weight.get_shape().ndims cannot be None")
 
-        # apply sample weighting
-        if weights is not None:
-            score *= weights
-            score /= tf_mean(tf.cast(tf.not_equal(weights, 0), tf.float32))
-        return tf_mean(score)
-    return weighted
+            start_index = max(0, sample_weight.get_shape().ndims)
+            reduction_indices = list(range(start_index, losses.get_shape().ndims))
+            losses = tf_mean(losses, axis=reduction_indices)
+
+            # apply sample weighting
+            losses *= sample_weight
+            losses /= tf_mean(tf.cast(tf.not_equal(sample_weight, 0), input_dtype))
+        mean_loss = tf_mean(losses)
+
+        # apply loss weighting
+        mean_loss *= loss_weight
+        add_loss(mean_loss)
+        return mean_loss
+
+    return _compute_weighted_loss
 
 
 def mean_squared_error(output, target):
@@ -64,7 +83,7 @@ def hinge(output, target):
     return tf_mean(tf.maximum(1. - target * output, 0.), axis=-1)
 
 
-def categorical_crossentropy(output, target, from_logits=False):
+def categorical_crossentropy(output, target, from_logits=True):
     """Categorical cross entropy between an output tensor and a target tensor,
     where the target is a tensor of the same shape as the output tensor.
 
@@ -83,7 +102,7 @@ def categorical_crossentropy(output, target, from_logits=False):
                           reduction_indices=len(output.get_shape()) - 1)
 
 
-def sparse_categorical_crossentropy(output, target, from_logits=False):
+def sparse_categorical_crossentropy(output, target, from_logits=True):
     """Categorical cross entropy between an output tensor and a target tensor,
     where the target is an integer tensor.
 
@@ -106,7 +125,7 @@ def sparse_categorical_crossentropy(output, target, from_logits=False):
     return res
 
 
-def binary_crossentropy(output, target, from_logits=False):
+def binary_crossentropy(output, target, from_logits=True):
     """Binary cross entropy between an output tensor and a target tensor."""
     if not from_logits:
         # transform back to logits
@@ -128,9 +147,20 @@ def poisson(output, target):
 
 
 def cosine_proximity(output, target):
-    y_true = tf_l2_normalize(target, axis=-1)
+    target = tf_l2_normalize(target, axis=-1)
     output = tf_l2_normalize(output, axis=-1)
-    return -tf_mean(y_true * output, axis=-1)
+    return -tf_mean(target * output, axis=-1)
+
+
+def vr_class_reward(output, target, scale=1, average_loss=True, baseline_objective='mse'):
+    output_shape = output[0].get_shape()
+    loss, _, _ = tf.contrib.reinforce.vr_class_reward(tf.reshape(output[0], [-1, int(output_shape[-1])]),
+                                                      tf.reshape(output[1], [-1]),
+                                                      tf.cast(tf.reshape(target, [-1]), tf.int64),
+                                                      scale=scale,
+                                                      average=average_loss,
+                                                      objective=baseline_objective)
+    return loss
 
 
 def get(name):
@@ -147,4 +177,5 @@ def get(name):
         'kld': kullback_leibler_divergence,
         'poisson': poisson,
         'cosine': cosine_proximity,
+        'vr_class_reward': vr_class_reward,
     }[name]

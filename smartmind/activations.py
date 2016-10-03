@@ -14,21 +14,40 @@ from .utils import process_params
 
 
 def linear(x, name=None):
-    return tf.identity(x, name=name)
+    return x
 
 
 def tanh(x, name=None):
+    """Element-wise tanh"""
     return tf.nn.tanh(x, name=name)
 
 
+def hard_tanh(x, min_value=-1, max_value=1, name=None):
+    """Segment-wise linear approximation of tanh.
+
+    hard_tanh is defined as:
+        f(x) = 1, if x > max_value
+        f(x) = -1 if x < min_value
+        f(x) = x, otherwise.
+    """
+    min_value = to_tensor(min_value, x.dtype.base_dtype)
+    max_value = to_tensor(max_value, x.dtype.base_dtype)
+    return tf.clip_by_value(x, min_value, max_value, name)
+
+
 def sigmoid(x, name=None):
+    """Element-wise sigmoid"""
     return tf.nn.sigmoid(x, name=name)
 
 
 def hard_sigmoid(x, name=None):
+    """Segment-wise linear approximation of sigmoid.
+    Faster than sigmoid."""
+    input_dtype = x.dtype.base_dtype
+
     x = (.2 * x) + .5
-    zero = to_tensor(0., x.dtype.base_dtype)
-    one = to_tensor(1., x.dtype.base_dtype)
+    zero = to_tensor(0., input_dtype)
+    one = to_tensor(1., input_dtype)
     return tf.clip_by_value(x, zero, one, name=name)
 
 
@@ -45,12 +64,20 @@ def softmax(x, name=None):
     raise Exception('Softmax only defined for 2D and 3D tensors: ndims=' + str(ndims))
 
 
+def log_softmax(x, name=None):
+    ndims = tf_ndims(x)
+    if ndims == 2:
+        return tf.nn.log_softmax(x, name)
+
+    raise Exception('Softmax only defined for 2D tensors: ndims=' + str(ndims))
+
+
 def softplus(x, name=None):
     return tf.nn.softplus(x, name=name)
 
 
 def softsign(x, name=None):
-    tf.nn.softsign(x, name=name)
+   return tf.nn.softsign(x, name=name)
 
 
 def relu(x, alpha=0.0, max_value=None, name=None):
@@ -69,6 +96,7 @@ def _get_defaults():
     return {
         'linear': OrderedDict([('name', None)]),
         'tanh': OrderedDict([('name', None)]),
+        'hard_tanh': OrderedDict([('min_value', -1), ('max_value', 1), ('name', None)]),
         'sigmoid': OrderedDict([('name', None)]),
         'hard_sigmoid': OrderedDict([('name', None)]),
         'softmax': OrderedDict([('name', None)]),
@@ -82,6 +110,7 @@ def get(name, kwargs=None):
     fn_dict = {
         'linear': linear,
         'tanh': tanh,
+        'hard_tanh': hard_tanh,
         'sigmoid': sigmoid,
         'hard_sigmoid': hard_sigmoid,
         'softmax': softmax,
@@ -90,7 +119,7 @@ def get(name, kwargs=None):
         'relu': relu,
     }
 
-    return get_from_module(name, fn_dict, _get_defaults(), False, False, kwargs)
+    return get_from_module(name, fn_dict, _get_defaults(), False, True, kwargs)
 
 
 def process_parameters(name, kwargs):
