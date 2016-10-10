@@ -45,6 +45,7 @@ def main(args):
     def create_glimpse_network(input_shape, batch_size, locator_hidden_size, glimpse_patch_size,
                                glimpse_depth, glimpse_scale, glimpse_hidden_size,
                                image_hidden_size, hidden_size):
+        print("create_glimpse_network")
         # create location sensor network
         local_sensor = Sequential()
         local_sensor.add(FullyConnected(locator_hidden_size,
