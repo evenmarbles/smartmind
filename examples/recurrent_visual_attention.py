@@ -101,6 +101,7 @@ def main(args):
     glimpse = create_glimpse_network(input_shape, args.batch_size, args.locator_hidden_size, args.glimpse_patch_size,
                                      args.glimpse_depth, args.glimpse_scale, args.glimpse_hidden_size,
                                      args.image_hidden_size, args.hidden_size)
+    print("glimpse build")
     locator = create_location_network(args.hidden_size, args.batch_size, args.locator_std, args.stochastic)
 
     input_ = Input(shape=input_shape)
