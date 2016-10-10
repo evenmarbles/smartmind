@@ -116,8 +116,10 @@ def main(args):
 
     reward_predictor = create_baseline_reward_predictor(args.batch_size)
     baseline = reward_predictor(agent)
+    print("make model")
 
     model = Model(input_=[input_], output=[agent, [agent, baseline]])
+    print("compile model")
     model.compile(
         optimizer=('sgd', decay_steps, decay_rate, args.min_learning_rate, True, {'learning_rate': args.learning_rate}),
         loss=['sparse_categorical_xentropy', 'vr_class_reward'],
